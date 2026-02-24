@@ -673,6 +673,8 @@
   </div>
 
   <button class="btn-primary" onclick="navigate('home')">✅ Empezar</button>
+  <button onclick="testVoz()" style="margin-top:12px;background:none;border:2px solid var(--primary-light);color:var(--primary);padding:12px 24px;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:var(--font);touch-action:manipulation;">🔊 Probar voz</button>
+  <p id="tts-status" style="margin-top:10px;font-size:12px;color:var(--text-light);text-align:center;font-weight:600;min-height:18px;"></p>
 </div>
 
 <!-- ================================================================
@@ -1120,100 +1122,120 @@ function navigate(screenId) {
 }
 
 // ============================================================
-// TTS — Compatible con Android WebView
+// TTS — Sistema multicapa para Android WebView / APK
 // ============================================================
+// Capa 1: Android TTS nativa via interfaz Java (WebViewGold, Capacitor, etc.)
+// Capa 2: speechSynthesis del navegador (funciona en algunos WebViews)
+// Capa 3: Visual feedback si ninguna voz está disponible
+
 let ttsVoices = [];
-let ttsReady = false;
+let ttsMethod = 'unknown'; // 'android', 'web', 'none'
 
 function initTTS() {
-  if (!('speechSynthesis' in window)) return;
-
-  function loadVoices() {
-    const v = window.speechSynthesis.getVoices();
-    if (v.length > 0) { ttsVoices = v; ttsReady = true; }
+  // Detectar qué método de TTS está disponible
+  // Capa 1: Algunos wrappers APK exponen window.Android o window.AndroidTTS
+  if (window.Android && typeof window.Android.speak === 'function') {
+    ttsMethod = 'android-interface';
+    return;
+  }
+  // Algunos wrappers usan window.webkit.messageHandlers (iOS/Android híbrido)
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tts) {
+    ttsMethod = 'webkit';
+    return;
   }
 
-  // Android WebView a veces no dispara onvoiceschanged
-  // Intentamos cargar de múltiples formas
-  loadVoices();
-  window.speechSynthesis.onvoiceschanged = loadVoices;
-  setTimeout(loadVoices, 500);
-  setTimeout(loadVoices, 1500);
+  // Capa 2: Web Speech API
+  if ('speechSynthesis' in window) {
+    ttsMethod = 'web';
+    // Cargar voces — Android WebView a veces es lento, intentar varias veces
+    function tryLoadVoices() {
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) { ttsVoices = v; }
+    }
+    tryLoadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = tryLoadVoices;
+    }
+    setTimeout(tryLoadVoices, 300);
+    setTimeout(tryLoadVoices, 800);
+    setTimeout(tryLoadVoices, 2000);
+    setTimeout(tryLoadVoices, 4000);
+    return;
+  }
+
+  ttsMethod = 'none';
 }
 
 function getBestVoice() {
-  if (ttsVoices.length === 0) return null;
-
-  // Prioridad: voces femeninas en español
-  const preferred = ['Paulina', 'Monica', 'Mónica', 'Luciana', 'Sabina',
-                     'Carmen', 'Conchita', 'Elena', 'Esperanza', 'female'];
-  for (const name of preferred) {
-    const v = ttsVoices.find(v => v.name.toLowerCase().includes(name.toLowerCase()));
-    if (v) return v;
+  if (!ttsVoices || ttsVoices.length === 0) return null;
+  // Voces femeninas preferidas en español
+  const femNames = ['paulina','monica','mónica','luciana','sabina',
+                    'carmen','conchita','elena','esperanza','maria',
+                    'female','mujer','woman'];
+  for (const name of femNames) {
+    const found = ttsVoices.find(v => v.name.toLowerCase().includes(name));
+    if (found) return found;
   }
-  // Cualquier voz en español
-  const esVoice = ttsVoices.find(v => v.lang && v.lang.startsWith('es'));
-  if (esVoice) return esVoice;
-  // Fallback: primera voz disponible
-  return ttsVoices[0] || null;
+  // Cualquier español
+  const esVoice = ttsVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  return esVoice || ttsVoices[0] || null;
 }
 
 function speak(text) {
-  if (!settings.tts) return;
-  if (!('speechSynthesis' in window)) return;
+  if (!settings.tts || !text) return;
 
-  // CRÍTICO en Android: cancelar antes de hablar
-  try { window.speechSynthesis.cancel(); } catch(e) {}
+  // Limpiar texto para TTS (quitar emojis que confunden al motor)
+  const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+                    .replace(/[🌈💜⭐✅❌🆘🔊🗑️]/g, '')
+                    .trim();
+  if (!clean) return;
 
-  // Pequeño delay necesario en Android WebView tras cancel()
-  setTimeout(() => {
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'es-ES'; // es-ES tiene mejor soporte en Android que es-CL
-      u.rate = 0.88;
-      u.pitch = 1.15;
-      u.volume = 1.0;
-
-      const voice = getBestVoice();
-      if (voice) u.voice = voice;
-
-      // Fix para Android: texto muy largo puede cortarse
-      // Dividir si supera 200 caracteres
-      if (text.length > 200) {
-        speakLong(text);
-        return;
-      }
-
-      window.speechSynthesis.speak(u);
-      return u;
-    } catch(e) {
-      console.log('TTS error:', e);
-    }
-  }, 100);
-}
-
-function speakLong(text) {
-  // Dividir por puntos/saltos para textos largos (fix Android)
-  const parts = text.split(/[.\n]+/).map(s => s.trim()).filter(s => s.length > 0);
-  let i = 0;
-
-  function speakNext() {
-    if (i >= parts.length || !settings.tts) return;
-    try {
-      const u = new SpeechSynthesisUtterance(parts[i]);
-      u.lang = 'es-ES';
-      u.rate = 0.88;
-      u.pitch = 1.15;
-      u.volume = 1.0;
-      const voice = getBestVoice();
-      if (voice) u.voice = voice;
-      u.onend = () => { i++; speakNext(); };
-      u.onerror = () => { i++; speakNext(); };
-      window.speechSynthesis.speak(u);
-    } catch(e) {}
+  // CAPA 1: Interfaz Android nativa (WebViewGold, etc.)
+  if (ttsMethod === 'android-interface') {
+    try { window.Android.speak(clean, 'es', 0.85, 1.15); return; } catch(e) {}
+    try { window.Android.speak(clean); return; } catch(e) {}
   }
 
-  speakNext();
+  // CAPA 2: Web Speech API con fixes para Android WebView
+  if ('speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch(e) {}
+
+    // Android WebView necesita que speechSynthesis sea activado por
+    // un gesto del usuario. Si ttsVoices está vacío, intentamos cargar.
+    if (ttsVoices.length === 0) {
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) ttsVoices = v;
+    }
+
+    // Dividir texto largo en oraciones (fix bug Android corta texto >200 chars)
+    const parts = clean.length > 180
+      ? clean.split(/(?<=[.!?])\s+|(?<=\n)/).map(s => s.trim()).filter(Boolean)
+      : [clean];
+
+    let idx = 0;
+    function next() {
+      if (idx >= parts.length || !settings.tts) return;
+      try {
+        const u = new SpeechSynthesisUtterance(parts[idx]);
+        u.lang   = 'es-ES';  // mejor soporte en Android que es-CL
+        u.rate   = 0.88;
+        u.pitch  = 1.15;
+        u.volume = 1.0;
+        const voice = getBestVoice();
+        if (voice) u.voice = voice;
+        u.onend   = () => { idx++; setTimeout(next, 50); };
+        u.onerror = () => { idx++; setTimeout(next, 50); };
+        window.speechSynthesis.speak(u);
+      } catch(e) { idx++; setTimeout(next, 50); }
+    }
+
+    // Delay 150ms tras cancel() — requerido en Android WebView
+    setTimeout(next, 150);
+    return;
+  }
+
+  // CAPA 3: Sin TTS disponible — feedback visual
+  showToast('🔇 Voz no disponible en este dispositivo');
 }
 
 // ============================================================
@@ -1529,6 +1551,26 @@ function showToast(msg) {
   t._timer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+function testVoz() {
+  const status = document.getElementById('tts-status');
+
+  // Actualizar status en pantalla
+  if (!('speechSynthesis' in window) && ttsMethod !== 'android-interface') {
+    if (status) status.textContent = '❌ TTS no disponible en este dispositivo';
+    showToast('❌ Voz no disponible');
+    return;
+  }
+
+  if (status) {
+    const voiceInfo = getBestVoice();
+    const voiceName = voiceInfo ? voiceInfo.name : 'voz por defecto';
+    const total = ttsVoices.length;
+    status.textContent = `Método: ${ttsMethod} · Voces: ${total} · Usando: ${voiceName}`;
+  }
+
+  speak('Hola, la voz está funcionando correctamente.');
+}
+
 // ============================================================
 // INIT — Android WebView compatible
 // ============================================================
@@ -1536,24 +1578,18 @@ window.addEventListener('DOMContentLoaded', () => {
   initTTS();
   applySettings();
 
-  // FIX CRÍTICO ANDROID: Los onclick en divs/buttons a veces no responden
-  // Usamos delegación de eventos con touchstart + click
+  // FIX CRÍTICO ANDROID: touchstart vacío activa el contexto de gestos
+  // necesario para que speechSynthesis funcione (requiere gesto de usuario)
   document.body.addEventListener('touchstart', function() {}, {passive: true});
 
-  // Fix para WebView: forzar repaint en navegación
-  // (algunos WebView Android congelan el render al cambiar display)
-  document.querySelectorAll('.screen').forEach(s => {
-    s.style.webkitTransform = 'translateZ(0)';
-  });
-
-  // Fix Android: speechSynthesis se pausa en background, reanudar al volver
+  // Fix Android WebView: speechSynthesis se pausa en background
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && window.speechSynthesis) {
       try { window.speechSynthesis.resume(); } catch(e) {}
     }
   });
 
-  // Fix Android WebView: a veces speechSynthesis se pausa solo
+  // Fix Android: speechSynthesis se pausa solo cada ~30s en algunos WebViews
   setInterval(() => {
     if (window.speechSynthesis && window.speechSynthesis.speaking) {
       try { window.speechSynthesis.resume(); } catch(e) {}
