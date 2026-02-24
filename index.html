@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#6B4FBB">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link rel="manifest" href="manifest.json">
+<title>ContigoApp - CAA TEA</title>
+<!-- Sin fuentes externas: 100% offline -->
+<style>
+  :root {
+    --primary: #6B4FBB;
+    --primary-light: #9B7FDB;
+    --primary-dark: #4A3090;
+    --accent: #FF7043;
+    --accent-soft: #FFAB91;
+    --green: #4CAF50;
+    --blue: #2196F3;
+    --yellow: #FFC107;
+    --pink: #E91E8B;
+    --red-soft: #EF5350;
+    --bg: #F5F0FF;
+    --white: #FFFFFF;
+    --text: #2D1B69;
+    --text-light: #6B5B95;
+    --shadow: 0 4px 20px rgba(107,79,187,0.18);
+    --shadow-sm: 0 2px 10px rgba(107,79,187,0.12);
+    --radius: 20px;
+    --radius-sm: 12px;
+    --font: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  /* FIX ANDROID WEBVIEW: todos los elementos interactivos deben tener cursor pointer y touch-action */
+  button, [onclick], .home-card, .picto-card, .board-tab, .mood-btn,
+  .exercise-card, .video-card, .cat-card, .agenda-item, .location-card,
+  .emoji-opt, .toggle, .back-btn, .sos-btn, .btn-primary, .phrase-btn,
+  .feedback-btn, .multi-chip, .yesno-btn, .loc-btn {
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* ========= SCREEN SYSTEM ========= */
+  .screen { display: none; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ========= HEADER ========= */
+  .app-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(107,79,187,0.3);
+  }
+
+  .app-header h2 { font-size: 18px; font-weight: 800; flex: 1; }
+  .back-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .back-btn:active { background: rgba(255,255,255,0.35); }
+
+  /* ========= ONBOARDING ========= */
+  #screen-onboarding {
+    background: linear-gradient(160deg, #F5F0FF 0%, #E8DFFF 40%, #FFE5F5 100%);
+    justify-content: center;
+    align-items: center;
+    padding: 40px 28px;
+    text-align: center;
+  }
+
+  .onboarding-logo {
+    width: 110px; height: 110px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 32px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 56px;
+    margin: 0 auto 24px;
+    box-shadow: 0 8px 32px rgba(107,79,187,0.35);
+    animation: floatLogo 3s ease-in-out infinite;
+  }
+
+  @keyframes floatLogo {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  .onboarding-title {
+    font-size: 32px; font-weight: 900;
+    color: var(--primary-dark);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+
+  .onboarding-subtitle {
+    font-size: 16px; color: var(--text-light);
+    margin-bottom: 36px; line-height: 1.6;
+  }
+
+  .access-options {
+    background: white;
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+    text-align: left;
+    width: 100%;
+  }
+
+  .access-options h3 {
+    font-size: 14px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-light);
+    margin-bottom: 14px;
+  }
+
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #F0E8FF;
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label { font-size: 15px; font-weight: 600; }
+
+  .toggle {
+    width: 48px; height: 26px;
+    background: #ddd;
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    border: none;
+    outline: none;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    left: 3px; top: 3px;
+    width: 20px; height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .toggle.on { background: var(--primary); }
+  .toggle.on::after { transform: translateX(22px); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white;
+    border: none;
+    padding: 18px 40px;
+    border-radius: 50px;
+    font-size: 18px; font-weight: 800;
+    cursor: pointer;
+    width: 100%;
+    box-shadow: 0 6px 24px rgba(107,79,187,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    font-family: var(--font);
+  }
+  .btn-primary:active { transform: scale(0.97); box-shadow: 0 3px 12px rgba(107,79,187,0.3); }
+
+  /* ========= HOME ========= */
+  #screen-home {
+    background: var(--bg);
+  }
+
+  .home-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #9B4FDB 100%);
+    padding: 24px 20px 28px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .home-header::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+  }
+  .home-header::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; left: 10px;
+    width: 80px; height: 80px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 50%;
+  }
+  .home-greet { font-size: 14px; opacity: 0.85; margin-bottom: 4px; }
+  .home-title { font-size: 26px; font-weight: 900; line-height: 1.2; }
+  .home-subtitle { font-size: 13px; opacity: 0.8; margin-top: 6px; }
+
+  .home-content { padding: 20px 16px 80px; flex: 1; }
+
+  .section-label {
+    font-size: 13px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--text-light);
+    margin-bottom: 12px; margin-top: 20px;
+  }
+
+  /* SOS BUTTON */
+  .sos-btn {
+    background: linear-gradient(135deg, #EF5350 0%, #FF7043 100%);
+    color: white;
+    border: none;
+    width: 100%;
+    padding: 18px 20px;
+    border-radius: var(--radius);
+    font-size: 20px; font-weight: 900;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 6px 20px rgba(239,83,80,0.4);
+    margin-bottom: 18px;
+    transition: transform 0.15s;
+    font-family: var(--font);
+    animation: pulse-sos 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-sos {
+    0%, 100% { box-shadow: 0 6px 20px rgba(239,83,80,0.4); }
+    50% { box-shadow: 0 6px 30px rgba(239,83,80,0.65); }
+  }
+  .sos-btn:active { transform: scale(0.97); }
+
+  /* GRID */
+  .home-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .home-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 18px 14px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; gap: 8px;
+    border: 2px solid transparent;
+  }
+  .home-card:active { transform: scale(0.96); box-shadow: var(--shadow); }
+  .home-card.highlight { border-color: var(--primary-light); background: #FAF7FF; }
+
+  .card-icon {
+    font-size: 38px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  }
+  .card-title { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.3; }
+  .card-badge {
+    background: var(--primary);
+    color: white;
+    font-size: 10px; font-weight: 800;
+    padding: 2px 8px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .card-badge.offline { background: var(--green); }
+  .card-badge.new { background: var(--accent); }
+
+  /* ========= CAA SCREEN ========= */
+  .caa-content { padding: 16px; flex: 1; overflow-y: auto; }
+
+  /* Phrase bar */
+  .phrase-bar {
+    background: white;
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    border: 2px solid #E8DFFF;
+  }
+  .phrase-label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--text-light); margin-bottom: 6px; }
+  .phrase-display {
+    font-size: 17px; font-weight: 700; color: var(--text);
+    min-height: 28px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  }
+  .phrase-word {
+    background: var(--primary);
+    color: white;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 15px; font-weight: 700;
+    animation: popIn 0.2s ease;
+  }
+  @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .phrase-empty { color: #C0B0E0; font-style: italic; font-size: 14px; }
+
+  .phrase-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+  }
+  .phrase-btn {
+    flex: 1; padding: 10px; border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 800; cursor: pointer; font-family: var(--font);
+    transition: transform 0.12s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .phrase-btn:active { transform: scale(0.95); }
+  .phrase-btn.speak { background: var(--green); color: white; }
+  .phrase-btn.clear { background: #F0E8FF; color: var(--primary); }
+  .phrase-btn.speak.speaking { animation: speakAnim 0.5s ease-in-out infinite alternate; }
+  @keyframes speakAnim { from { opacity: 1; } to { opacity: 0.6; } }
+
+  /* Boards tabs */
+  .boards-tabs {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+    margin-bottom: 16px; scrollbar-width: none;
+  }
+  .boards-tabs::-webkit-scrollbar { display: none; }
+  .board-tab {
+    background: white;
+    border: 2px solid #E8DFFF;
+    border-radius: 50px;
+    padding: 8px 16px;
+    font-size: 13px; font-weight: 800;
+    cursor: pointer; white-space: nowrap;
+    transition: all 0.2s;
+    color: var(--text-light);
+    font-family: var(--font);
+  }
+  .board-tab.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+  }
+
+  /* Picto grid */
+  .picto-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .picto-card {
+    background: white;
+    border-radius: var(--radius-sm);
+    padding: 10px 6px 8px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    transition: transform 0.12s, box-shadow 0.12s;
+    border: 2px solid transparent;
+    min-height: 80px;
+    justify-content: center;
+  }
+  .picto-card:active { transform: scale(0.92); border-color: var(--primary-light); }
+  .picto-card.selected { border-color: var(--primary); background: #FAF7FF; }
+
+  .picto-emoji { font-size: 32px; line-height: 1; }
+  .picto-label {
+    font-size: 10px; font-weight: 800;
+    text-align: center; color: var(--text);
+    text-transform: uppercase; letter-spacing: 0.3px;
+    line-height: 1.2;
+  }
+
+  /* Category colors */
+  .picto-card.cat-need { background: #FFF8E1; }
+  .picto-card.cat-action { background: #E8F5E9; }
+  .picto-card.cat-emotion { background: #FCE4EC; }
+  .picto-card.cat-sensory { background: #E3F2FD; }
+  .picto-card.cat-person { background: #F3E5F5; }
+
+  /* ========= REGULATION ========= */
+  .reg-content { padding: 16px; flex: 1; overflow-y: auto; }
+
+  .mood-btns {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .mood-btn {
+    background: white;
+    border: none; border-radius: var(--radius);
+    padding: 20px 14px;
+    cursor: pointer; font-family: var(--font);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s;
+  }
+  .mood-btn:active { transform: scale(0.95); }
+  .mood-emoji { font-size: 36px; }
+  .mood-text { font-size: 12px; font-weight: 800; color: var(--text); text-align: center; line-height: 1.3; }
+
+  .exercise-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .exercise-card:active { transform: scale(0.98); }
+  .exercise-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .exercise-icon {
+    width: 52px; height: 52px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  }
+  .exercise-title { font-size: 17px; font-weight: 800; }
+  .exercise-duration { font-size: 12px; color: var(--text-light); font-weight: 600; }
+  .exercise-steps { list-style: none; }
+  .exercise-step {
+    display: flex; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid #F0E8FF; align-items: flex-start;
+  }
+  .exercise-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 24px; height: 24px; flex-shrink: 0;
+    background: var(--primary);
+    color: white; border-radius: 50%;
+    font-size: 12px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-text { font-size: 14px; line-height: 1.5; padding-top: 2px; }
+
+  .exercise-feedback {
+    display: flex; gap: 8px; margin-top: 14px;
+  }
+  .feedback-btn {
+    flex: 1; padding: 10px; border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font);
+  }
+  .feedback-btn.yes { background: #E8F5E9; color: var(--green); }
+  .feedback-btn.no { background: #FFEBEE; color: var(--red-soft); }
+
+  /* ========= SOS SCREEN ========= */
+  .sos-content {
+    background: linear-gradient(160deg, #FFF5F5 0%, #FFEBEE 100%);
+    flex: 1; padding: 20px 16px 40px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  .sos-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .sos-card-title { font-size: 15px; font-weight: 800; color: var(--red-soft); margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+  .sos-step {
+    display: flex; gap: 10px; padding: 10px 0;
+    border-bottom: 1px solid #FFF0F0; align-items: flex-start;
+  }
+  .sos-step:last-child { border-bottom: none; }
+  .sos-step-num {
+    width: 28px; height: 28px; flex-shrink: 0;
+    background: var(--red-soft); color: white;
+    border-radius: 50%; font-size: 14px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sos-step-text { font-size: 15px; font-weight: 600; padding-top: 4px; line-height: 1.4; }
+
+  /* ========= SCHOOL SCREEN ========= */
+  .school-content { padding: 16px; flex: 1; overflow-y: auto; }
+  .category-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .cat-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 18px 14px;
+    cursor: pointer; text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s;
+    border-top: 4px solid var(--primary-light);
+  }
+  .cat-card:active { transform: scale(0.96); }
+  .cat-card-icon { font-size: 34px; margin-bottom: 8px; }
+  .cat-card-title { font-size: 13px; font-weight: 800; color: var(--text); }
+
+  /* Video card */
+  .video-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+  }
+  .video-thumb {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    border-radius: var(--radius-sm);
+    height: 130px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+    font-size: 48px;
+    position: relative;
+  }
+  .play-btn {
+    position: absolute;
+    width: 56px; height: 56px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .video-duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .video-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+  .video-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; }
+
+  /* Script view */
+  .script-content-area { padding: 16px; flex: 1; overflow-y: auto; }
+  .script-block {
+    background: white; border-radius: var(--radius);
+    padding: 20px; margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .script-block h3 { font-size: 16px; font-weight: 800; color: var(--primary); margin-bottom: 12px; }
+  .script-para { font-size: 15px; line-height: 1.7; color: var(--text); }
+  .script-bullets { margin-top: 10px; }
+  .script-bullet {
+    display: flex; gap: 8px; padding: 6px 0; align-items: flex-start;
+    font-size: 14px;
+  }
+  .script-bullet-dot { color: var(--primary); font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+
+  /* ========= CHECK-IN ========= */
+  .checkin-content { padding: 16px; flex: 1; overflow-y: auto; }
+  .checkin-section { background: white; border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+  .checkin-section-title { font-size: 15px; font-weight: 800; margin-bottom: 14px; color: var(--text); }
+  .emoji-scale { display: flex; gap: 8px; justify-content: center; }
+  .emoji-opt {
+    width: 52px; height: 52px;
+    border-radius: 50%; border: 3px solid #E8DFFF;
+    font-size: 28px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    background: transparent;
+  }
+  .emoji-opt.selected { border-color: var(--primary); background: #F0EAFF; transform: scale(1.15); }
+  .range-slider {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 8px; background: #E8DFFF; border-radius: 4px; outline: none;
+  }
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 26px; height: 26px;
+    background: var(--primary); border-radius: 50%; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(107,79,187,0.35);
+  }
+  .slider-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); margin-top: 6px; font-weight: 700; }
+
+
+
+  /* ========= TOAST ========= */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(30,20,60,0.92);
+    color: white; padding: 13px 24px;
+    border-radius: 50px; font-size: 14px; font-weight: 700;
+    z-index: 999; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ========= LOCATIONS ========= */
+  .locations-content { padding: 16px; flex: 1; overflow-y: auto; }
+  .location-card {
+    background: white; border-radius: var(--radius); padding: 18px;
+    margin-bottom: 12px; box-shadow: var(--shadow-sm);
+  }
+  .location-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .location-addr { font-size: 13px; color: var(--text-light); margin-bottom: 10px; }
+  .location-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .loc-btn {
+    background: #F0E8FF; color: var(--primary);
+    border: none; padding: 7px 14px; border-radius: 50px;
+    font-size: 12px; font-weight: 800; cursor: pointer; font-family: var(--font);
+  }
+
+  /* ========= NAV BAR (optional bottom nav) ========= */
+  .bottom-nav {
+    display: none; /* hidden for now, home grid is simpler */
+  }
+
+  /* ========= GENERAL UTILS ========= */
+  .scroll-area { overflow-y: auto; flex: 1; }
+  .text-center { text-align: center; }
+  .mt-12 { margin-top: 12px; }
+  .mt-20 { margin-top: 20px; }
+  .pb-80 { padding-bottom: 80px; }
+
+  /* BIG TEXT MODE */
+  body.big-text .card-title { font-size: 16px; }
+  body.big-text .picto-label { font-size: 13px; }
+  body.big-text .picto-emoji { font-size: 40px; }
+  body.big-text .picto-card { min-height: 95px; }
+
+  /* HIGH CONTRAST */
+  body.high-contrast { background: #000; color: #FFF; }
+  body.high-contrast .home-card,
+  body.high-contrast .picto-card,
+  body.high-contrast .exercise-card { background: #111; color: #FFF; border: 2px solid #FFF; }
+  body.high-contrast .card-title,
+  body.high-contrast .picto-label { color: #FFF; }
+
+  /* SIMPLE MODE */
+  body.simple-mode .home-grid .home-card:nth-child(n+6) { display: none; }
+
+  /* Responsive for wider screens */
+  @media (min-width: 600px) {
+    .picto-grid { grid-template-columns: repeat(5, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     SCREEN 0: ONBOARDING
+================================================================ -->
+<div id="screen-onboarding" class="screen active">
+  <div class="onboarding-logo">🌈</div>
+  <div class="onboarding-title">ContigoApp</div>
+  <div class="onboarding-subtitle">Comunicación Aumentativa<br>y Alternativa para TEA 💜</div>
+
+  <div class="access-options">
+    <h3>⚙️ Accesibilidad</h3>
+    <div class="toggle-row">
+      <span class="toggle-label">📝 Texto grande</span>
+      <button class="toggle" id="toggle-bigtext" onclick="toggleAccess('bigtext', this)"></button>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🔊 Leer en voz alta</span>
+      <button class="toggle on" id="toggle-tts" onclick="toggleAccess('tts', this)"></button>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🌗 Alto contraste</span>
+      <button class="toggle" id="toggle-contrast" onclick="toggleAccess('contrast', this)"></button>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🎯 Modo pocas opciones</span>
+      <button class="toggle" id="toggle-simple" onclick="toggleAccess('simple', this)"></button>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="navigate('home')">✅ Empezar</button>
+  <button onclick="testVoz()" style="margin-top:12px;background:none;border:2px solid var(--primary-light);color:var(--primary);padding:12px 24px;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:var(--font);touch-action:manipulation;">🔊 Probar voz</button>
+  <p id="tts-status" style="margin-top:10px;font-size:12px;color:var(--text-light);text-align:center;font-weight:600;min-height:18px;"></p>
+  <p style="margin-top:8px;font-size:11px;color:#aaa;text-align:center;line-height:1.5;padding:0 10px;">
+    La voz requiere internet (4G o WiFi) la primera vez.<br>Toca "Probar voz" para verificar que funciona.
+  </p>
+</div>
+
+<!-- ================================================================
+     SCREEN 1: HOME
+================================================================ -->
+<div id="screen-home" class="screen">
+  <div class="home-header">
+    <div class="home-greet">Hola 👋 Bienvenida/o</div>
+    <div class="home-title">¿Qué necesitas<br>hoy?</div>
+    <div class="home-subtitle">Selecciona una opción</div>
+  </div>
+
+  <div class="home-content">
+    <button class="sos-btn" onclick="navigate('sos')">
+      🆘 Plan de Desregulación
+    </button>
+
+    <div class="section-label">Herramientas principales</div>
+    <div class="home-grid">
+      <div class="home-card highlight" onclick="navigate('caa')">
+        <div class="card-icon">🗣️</div>
+        <div class="card-title">Comunicación y Pictogramas</div>
+        <span class="card-badge">CAA</span>
+      </div>
+      <div class="home-card" onclick="navigate('regulation')">
+        <div class="card-icon">🧩</div>
+        <div class="card-title">Juegos de Regulación</div>
+      </div>
+      <div class="home-card" onclick="navigate('school')">
+        <div class="card-icon">🎓</div>
+        <div class="card-title">Escuela para Padres</div>
+        <span class="card-badge new">+videos</span>
+      </div>
+      <div class="home-card" onclick="navigate('checkin')">
+        <div class="card-icon">🙂</div>
+        <div class="card-title">¿Cómo me siento hoy?</div>
+      </div>
+      <div class="home-card" onclick="navigate('locations')">
+        <div class="card-icon">📍</div>
+        <div class="card-title">Lugares Seguros</div>
+        <span class="card-badge offline">Offline</span>
+      </div>
+      <div class="home-card" onclick="navigate('ley')">
+        <div class="card-icon">⚖️</div>
+        <div class="card-title">Ley TEA Chile</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SCREEN: CAA
+================================================================ -->
+<div id="screen-caa" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>🗣️ CAA y Pictogramas</h2>
+  </div>
+  <div class="caa-content">
+    <!-- Phrase bar -->
+    <div class="phrase-bar">
+      <div class="phrase-label">📝 Mi frase:</div>
+      <div class="phrase-display" id="phrase-display">
+        <span class="phrase-empty">Toca los pictogramas…</span>
+      </div>
+      <div class="phrase-actions">
+        <button class="phrase-btn speak" id="speak-btn" onclick="speakPhrase()">🔊 Decir frase</button>
+        <button class="phrase-btn clear" onclick="clearPhrase()">🗑️ Borrar</button>
+      </div>
+    </div>
+
+    <!-- Board tabs -->
+    <div class="boards-tabs">
+      <button class="board-tab active" onclick="switchBoard('basico', this)">🌟 Básico</button>
+      <button class="board-tab" onclick="switchBoard('casa', this)">🏠 Casa</button>
+      <button class="board-tab" onclick="switchBoard('colegio', this)">🏫 Colegio</button>
+      <button class="board-tab" onclick="switchBoard('medico', this)">🏥 Médico</button>
+      <button class="board-tab" onclick="switchBoard('salidas', this)">🚗 Salidas</button>
+    </div>
+
+    <!-- Picto grids -->
+    <div id="board-basico" class="picto-grid">
+      <!-- Personas -->
+      <div class="picto-card cat-person" onclick="addWord('YO')"><div class="picto-emoji">👤</div><div class="picto-label">YO</div></div>
+      <div class="picto-card cat-person" onclick="addWord('MAMÁ')"><div class="picto-emoji">👩</div><div class="picto-label">MAMÁ</div></div>
+      <div class="picto-card cat-person" onclick="addWord('PAPÁ')"><div class="picto-emoji">👨</div><div class="picto-label">PAPÁ</div></div>
+      <div class="picto-card cat-person" onclick="addWord('TÚ')"><div class="picto-emoji">👥</div><div class="picto-label">TÚ</div></div>
+      <!-- Acciones -->
+      <div class="picto-card cat-action" onclick="addWord('QUIERO')"><div class="picto-emoji">🙏</div><div class="picto-label">QUIERO</div></div>
+      <div class="picto-card cat-action" onclick="addWord('NO QUIERO')"><div class="picto-emoji">🚫</div><div class="picto-label">NO QUIERO</div></div>
+      <div class="picto-card cat-action" onclick="addWord('MÁS')"><div class="picto-emoji">➕</div><div class="picto-label">MÁS</div></div>
+      <div class="picto-card cat-action" onclick="addWord('TERMINÉ')"><div class="picto-emoji">🏁</div><div class="picto-label">TERMINÉ</div></div>
+      <!-- Necesidades -->
+      <div class="picto-card cat-need" onclick="addWord('AGUA')"><div class="picto-emoji">💧</div><div class="picto-label">AGUA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('COMER')"><div class="picto-emoji">🍽️</div><div class="picto-label">COMER</div></div>
+      <div class="picto-card cat-need" onclick="addWord('BAÑO')"><div class="picto-emoji">🚽</div><div class="picto-label">BAÑO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('DORMIR')"><div class="picto-emoji">😴</div><div class="picto-label">DORMIR</div></div>
+      <div class="picto-card cat-need" onclick="addWord('AYUDA')"><div class="picto-emoji">🆘</div><div class="picto-label">AYUDA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('PARAR')"><div class="picto-emoji">🛑</div><div class="picto-label">PARAR</div></div>
+      <div class="picto-card cat-need" onclick="addWord('ESPERAR')"><div class="picto-emoji">⏰</div><div class="picto-label">ESPERAR</div></div>
+      <div class="picto-card cat-need" onclick="addWord('DOLOR')"><div class="picto-emoji">🤕</div><div class="picto-label">DOLOR</div></div>
+      <!-- Emociones -->
+      <div class="picto-card cat-emotion" onclick="addWord('FELIZ')"><div class="picto-emoji">😄</div><div class="picto-label">FELIZ</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('TRISTE')"><div class="picto-emoji">😢</div><div class="picto-label">TRISTE</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('ENOJADO')"><div class="picto-emoji">😠</div><div class="picto-label">ENOJADO</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('CANSADO')"><div class="picto-emoji">😫</div><div class="picto-label">CANSADO</div></div>
+      <!-- Sensorial -->
+      <div class="picto-card cat-sensory" onclick="addWord('MUCHO RUIDO')"><div class="picto-emoji">🔇</div><div class="picto-label">MUCHO RUIDO</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('LUZ FUERTE')"><div class="picto-emoji">☀️</div><div class="picto-label">LUZ FUERTE</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('ME MOLESTA')"><div class="picto-emoji">😣</div><div class="picto-label">ME MOLESTA</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('TRANQUILO')"><div class="picto-emoji">🌿</div><div class="picto-label">TRANQUILO</div></div>
+      <!-- Respuestas -->
+      <div class="picto-card cat-action" onclick="addWord('SÍ')"><div class="picto-emoji">✅</div><div class="picto-label">SÍ</div></div>
+      <div class="picto-card cat-action" onclick="addWord('NO')"><div class="picto-emoji">❌</div><div class="picto-label">NO</div></div>
+      <div class="picto-card cat-action" onclick="addWord('IR')"><div class="picto-emoji">🚶</div><div class="picto-label">IR</div></div>
+      <div class="picto-card cat-action" onclick="addWord('VOLVER')"><div class="picto-emoji">↩️</div><div class="picto-label">VOLVER</div></div>
+    </div>
+
+    <div id="board-casa" class="picto-grid" style="display:none">
+      <div class="picto-card cat-action" onclick="addWord('JUGAR')"><div class="picto-emoji">🎮</div><div class="picto-label">JUGAR</div></div>
+      <div class="picto-card cat-action" onclick="addWord('TV')"><div class="picto-emoji">📺</div><div class="picto-label">TV</div></div>
+      <div class="picto-card cat-action" onclick="addWord('MÚSICA')"><div class="picto-emoji">🎵</div><div class="picto-label">MÚSICA</div></div>
+      <div class="picto-card cat-action" onclick="addWord('CELULAR')"><div class="picto-emoji">📱</div><div class="picto-label">CELULAR</div></div>
+      <div class="picto-card cat-need" onclick="addWord('DUCHA')"><div class="picto-emoji">🚿</div><div class="picto-label">DUCHA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('DIENTES')"><div class="picto-emoji">🦷</div><div class="picto-label">DIENTES</div></div>
+      <div class="picto-card cat-need" onclick="addWord('ROPA')"><div class="picto-emoji">👕</div><div class="picto-label">ROPA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('ORDENAR')"><div class="picto-emoji">🧹</div><div class="picto-label">ORDENAR</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('QUIERO ESTAR SOLO')"><div class="picto-emoji">🚪</div><div class="picto-label">SOLO/A</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('ABRAZO NO')"><div class="picto-emoji">🙅</div><div class="picto-label">ABRAZO NO</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('NECESITO ESPACIO')"><div class="picto-emoji">🌙</div><div class="picto-label">ESPACIO</div></div>
+      <div class="picto-card cat-action" onclick="addWord('COCINA')"><div class="picto-emoji">🍳</div><div class="picto-label">COCINA</div></div>
+    </div>
+
+    <div id="board-colegio" class="picto-grid" style="display:none">
+      <div class="picto-card cat-action" onclick="addWord('SALA')"><div class="picto-emoji">🏫</div><div class="picto-label">SALA</div></div>
+      <div class="picto-card cat-action" onclick="addWord('RECREO')"><div class="picto-emoji">⛹️</div><div class="picto-label">RECREO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('BAÑO')"><div class="picto-emoji">🚽</div><div class="picto-label">BAÑO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('COMER')"><div class="picto-emoji">🍱</div><div class="picto-label">COMER</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('SILENCIO')"><div class="picto-emoji">🤫</div><div class="picto-label">SILENCIO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('DESCANSO')"><div class="picto-emoji">💤</div><div class="picto-label">DESCANSO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('ME DUELE')"><div class="picto-emoji">🤕</div><div class="picto-label">ME DUELE</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('NO ENTIENDO')"><div class="picto-emoji">🤷</div><div class="picto-label">NO ENTIENDO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('AYUDA')"><div class="picto-emoji">✋</div><div class="picto-label">AYUDA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('NECESITO PAUSA')"><div class="picto-emoji">⏸️</div><div class="picto-label">PAUSA</div></div>
+      <div class="picto-card cat-action" onclick="addWord('TAREA')"><div class="picto-emoji">📝</div><div class="picto-label">TAREA</div></div>
+      <div class="picto-card cat-person" onclick="addWord('PROFESOR')"><div class="picto-emoji">👨‍🏫</div><div class="picto-label">PROFE</div></div>
+    </div>
+
+    <div id="board-medico" class="picto-grid" style="display:none">
+      <div class="picto-card cat-need" onclick="addWord('ME DUELE AQUÍ')"><div class="picto-emoji">🫀</div><div class="picto-label">ME DUELE</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('TENGO MIEDO')"><div class="picto-emoji">😨</div><div class="picto-label">MIEDO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('PAUSA')"><div class="picto-emoji">⏸️</div><div class="picto-label">PAUSA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('AGUA')"><div class="picto-emoji">💧</div><div class="picto-label">AGUA</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('RUIDO MOLESTA')"><div class="picto-emoji">🔇</div><div class="picto-label">RUIDO</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('LUZ MOLESTA')"><div class="picto-emoji">🌫️</div><div class="picto-label">LUZ</div></div>
+      <div class="picto-card cat-action" onclick="addWord('TERMINÉ')"><div class="picto-emoji">🏁</div><div class="picto-label">TERMINÉ</div></div>
+      <div class="picto-card cat-action" onclick="addWord('FALTA POCO')"><div class="picto-emoji">⏳</div><div class="picto-label">FALTA POCO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('ESPERAR')"><div class="picto-emoji">🪑</div><div class="picto-label">ESPERAR</div></div>
+    </div>
+
+    <div id="board-salidas" class="picto-grid" style="display:none">
+      <div class="picto-card cat-action" onclick="addWord('IRME')"><div class="picto-emoji">🏃</div><div class="picto-label">IRME</div></div>
+      <div class="picto-card cat-action" onclick="addWord('QUEDARME')"><div class="picto-emoji">🪑</div><div class="picto-label">QUEDARME</div></div>
+      <div class="picto-card cat-action" onclick="addWord('AUTO')"><div class="picto-emoji">🚗</div><div class="picto-label">AUTO</div></div>
+      <div class="picto-card cat-action" onclick="addWord('BUS')"><div class="picto-emoji">🚌</div><div class="picto-label">BUS</div></div>
+      <div class="picto-card cat-need" onclick="addWord('BAÑO')"><div class="picto-emoji">🚽</div><div class="picto-label">BAÑO</div></div>
+      <div class="picto-card cat-need" onclick="addWord('AGUA')"><div class="picto-emoji">💧</div><div class="picto-label">AGUA</div></div>
+      <div class="picto-card cat-need" onclick="addWord('COMER')"><div class="picto-emoji">🍽️</div><div class="picto-label">COMER</div></div>
+      <div class="picto-card cat-sensory" onclick="addWord('MUCHA GENTE')"><div class="picto-emoji">👥</div><div class="picto-label">MUCHA GENTE</div></div>
+      <div class="picto-card cat-emotion" onclick="addWord('NECESITO ESPACIO')"><div class="picto-emoji">🌿</div><div class="picto-label">ESPACIO</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SCREEN: REGULATION
+================================================================ -->
+<div id="screen-regulation" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>🧩 Regulación</h2>
+  </div>
+  <div class="reg-content" id="reg-main">
+    <p style="font-size:15px;color:var(--text-light);margin-bottom:16px;font-weight:600;">¿Cómo me siento ahora?</p>
+    <div class="mood-btns">
+      <button class="mood-btn" onclick="showExercises('activado')">
+        <span class="mood-emoji">⚡</span>
+        <span class="mood-text">Muy activado/a<br>(calma rápida)</span>
+      </button>
+      <button class="mood-btn" onclick="showExercises('concentrar')">
+        <span class="mood-emoji">🎯</span>
+        <span class="mood-text">Necesito concentrarme</span>
+      </button>
+      <button class="mood-btn" onclick="showExercises('descansar')">
+        <span class="mood-emoji">😴</span>
+        <span class="mood-text">Necesito descansar</span>
+      </button>
+      <button class="mood-btn" onclick="showExercises('sensorial')">
+        <span class="mood-emoji">🌊</span>
+        <span class="mood-text">Sensorial:<br>ruido / luz / tacto</span>
+      </button>
+    </div>
+
+    <div id="exercises-container"></div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SCREEN: SOS
+================================================================ -->
+<div id="screen-sos" class="screen">
+  <div class="app-header" style="background:linear-gradient(135deg,#EF5350,#FF7043)">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>🆘 Plan de Desregulación</h2>
+  </div>
+  <div class="sos-content">
+    <div class="sos-card">
+      <div class="sos-card-title">⚡ En el momento</div>
+      <div class="sos-step"><div class="sos-step-num">1</div><div class="sos-step-text">Baja los estímulos: luz, ruido, actividad</div></div>
+      <div class="sos-step"><div class="sos-step-num">2</div><div class="sos-step-text">Habla poco. Usa frases muy simples.</div></div>
+      <div class="sos-step"><div class="sos-step-num">3</div><div class="sos-step-text">Da espacio y seguridad. Sin apurar.</div></div>
+      <div class="sos-step"><div class="sos-step-num">4</div><div class="sos-step-text">Ofrece solo 2 opciones: "¿agua o descanso?"</div></div>
+      <div class="sos-step"><div class="sos-step-num">5</div><div class="sos-step-text">Evita sermones y preguntas largas.</div></div>
+    </div>
+    <div class="sos-card">
+      <div class="sos-card-title">🔃 Después (cuando pase)</div>
+      <div class="sos-step"><div class="sos-step-num">1</div><div class="sos-step-text">¿Qué lo gatilló? Anótalo.</div></div>
+      <div class="sos-step"><div class="sos-step-num">2</div><div class="sos-step-text">¿Qué ayudó? Guárdalo para el plan.</div></div>
+      <div class="sos-step"><div class="sos-step-num">3</div><div class="sos-step-text">Conversa con calma, no como castigo.</div></div>
+    </div>
+    <div class="sos-card">
+      <div class="sos-card-title">💜 Recuerda siempre</div>
+      <div class="sos-step"><div class="sos-step-num">💜</div><div class="sos-step-text">Una desregulación no es maldad ni manipulación. Es el cuerpo diciendo: "no puedo más".</div></div>
+    </div>
+    <button class="btn-primary" onclick="navigate('regulation')" style="margin-top:8px">🧩 Ver ejercicios de calma</button>
+  </div>
+</div>
+
+<!-- ================================================================
+     SCREEN: SCHOOL
+================================================================ -->
+<div id="screen-school" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>🎓 Escuela para Padres</h2>
+  </div>
+  <div class="school-content">
+    <p style="font-size:14px;color:var(--text-light);margin-bottom:16px;font-weight:600;">Formación para cuidadores y familias</p>
+
+    <div class="section-label">Videos disponibles</div>
+    <div id="videos-list">
+      <div class="video-card" onclick="showVideo(0)">
+        <div class="video-thumb">🧩<div class="play-btn">▶</div><div class="video-duration">~80s</div></div>
+        <div class="video-title">¿Qué es el autismo?</div>
+        <div class="video-desc">Una mirada cálida y sin tecnicismos sobre el espectro.</div>
+      </div>
+      <div class="video-card" onclick="showVideo(1)">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#4CAF50,#8BC34A)">🔍<div class="play-btn">▶</div><div class="video-duration">~70s</div></div>
+        <div class="video-title">Pesquisa vs Diagnóstico</div>
+        <div class="video-desc">¿Qué significa cada término? Sin alarmar.</div>
+      </div>
+      <div class="video-card" onclick="showVideo(2)">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#FF9800,#FFC107)">👁️<div class="play-btn">▶</div><div class="video-duration">~85s</div></div>
+        <div class="video-title">Signos de alerta (sin pánico)</div>
+        <div class="video-desc">Cuándo y cómo observar con calma.</div>
+      </div>
+      <div class="video-card" onclick="showVideo(3)">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#EF5350,#FF7043)">⚡<div class="play-btn">▶</div><div class="video-duration">~90s</div></div>
+        <div class="video-title">Qué hacer en una desregulación</div>
+        <div class="video-desc">Pasos concretos y prácticos en el momento.</div>
+      </div>
+      <div class="video-card" onclick="showVideo(4)">
+        <div class="video-thumb" style="background:linear-gradient(135deg,#9C27B0,#E91E63)">🍽️<div class="play-btn">▶</div><div class="video-duration">~80s</div></div>
+        <div class="video-title">Selectividad alimentaria</div>
+        <div class="video-desc">Pasos realistas y sin presión.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     SCREEN: VIDEO PLAYER (script reader)
+================================================================ -->
+<div id="screen-video" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('school')">←</button>
+    <h2 id="video-screen-title">Video</h2>
+  </div>
+  <div class="script-content-area" id="video-content"></div>
+</div>
+
+<!-- ================================================================
+     SCREEN: CHECK-IN
+================================================================ -->
+<div id="screen-checkin" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>🙂 ¿Cómo me siento hoy?</h2>
+  </div>
+  <div class="checkin-content">
+    <div class="checkin-section">
+      <div class="checkin-section-title">⚡ Energía hoy</div>
+      <div class="emoji-scale">
+        <button class="emoji-opt" onclick="selectOpt(this, 'energia')">🔋</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'energia')">⚡</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'energia')">🌟</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--text-light);font-weight:700;">
+        <span>Baja</span><span>Media</span><span>Alta</span>
+      </div>
+    </div>
+    <div class="checkin-section">
+      <div class="checkin-section-title">😊 Ánimo</div>
+      <div class="emoji-scale">
+        <button class="emoji-opt" onclick="selectOpt(this, 'animo')">😟</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'animo')">😐</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'animo')">🙂</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'animo')">😄</button>
+      </div>
+    </div>
+    <div class="checkin-section">
+      <div class="checkin-section-title">😰 Nivel de estrés (1–5)</div>
+      <input type="range" class="range-slider" min="1" max="5" value="2" id="stress-slider" oninput="updateSlider(this)">
+      <div class="slider-labels"><span>😌 Calma</span><span>😰 Mucho</span></div>
+    </div>
+    <div class="checkin-section">
+      <div class="checkin-section-title">😴 Sueño</div>
+      <div class="emoji-scale">
+        <button class="emoji-opt" onclick="selectOpt(this, 'sueno')">😵</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'sueno')">😐</button>
+        <button class="emoji-opt" onclick="selectOpt(this, 'sueno')">😊</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--text-light);font-weight:700;">
+        <span>Malo</span><span>OK</span><span>Bueno</span>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="showTips()" style="margin-top:8px">Ver tips de hoy 💡</button>
+
+    <div id="tips-section" style="display:none;margin-top:20px;">
+      <div class="script-block">
+        <h3>💡 Tu tip de hoy</h3>
+        <p class="script-para" id="daily-tip">...</p>
+      </div>
+      <button class="btn-primary" style="background:var(--green)" onclick="saveTip()">Guardar como hábito ✅</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ================================================================
+     SCREEN: LOCATIONS
+================================================================ -->
+<div id="screen-locations" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>📍 Lugares Seguros</h2>
+  </div>
+  <div class="locations-content">
+    <div class="location-card">
+      <div class="location-name">🏠 Casa</div>
+      <div class="location-addr">Mi dirección principal · offline</div>
+      <div class="location-actions">
+        <button class="loc-btn" onclick="showToast('Abriendo ficha de emergencia…')">Ver ficha</button>
+        <button class="loc-btn" onclick="showToast('Ruta guardada offline')">Ruta</button>
+        <button class="loc-btn" onclick="showToast('Llamando a contacto 1…')">Llamar</button>
+      </div>
+    </div>
+    <div class="location-card">
+      <div class="location-name">🏫 Colegio</div>
+      <div class="location-addr">Av. Principal 123 · offline</div>
+      <div class="location-actions">
+        <button class="loc-btn" onclick="showToast('Abriendo ficha de emergencia…')">Ver ficha</button>
+        <button class="loc-btn" onclick="showToast('Ruta guardada offline')">Ruta</button>
+        <button class="loc-btn" onclick="showToast('Llamando al colegio…')">Llamar</button>
+      </div>
+    </div>
+    <div class="location-card">
+      <div class="location-name">🌳 Plaza tranquila</div>
+      <div class="location-addr">Plaza Los Alerces · lugar seguro</div>
+      <div class="location-actions">
+        <button class="loc-btn" onclick="showToast('Lugar silencioso, sin ruidos fuertes')">Notas</button>
+        <button class="loc-btn" onclick="showToast('Ruta guardada offline')">Ruta</button>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="showToast('Agregar lugar: próximamente en APK 💜')" style="margin-top:16px">➕ Agregar lugar seguro</button>
+  </div>
+</div>
+
+<!-- ================================================================
+     SCREEN: LEY TEA
+================================================================ -->
+<div id="screen-ley" class="screen">
+  <div class="app-header">
+    <button class="back-btn" onclick="navigate('home')">←</button>
+    <h2>⚖️ Ley TEA Chile</h2>
+  </div>
+  <div style="padding:16px;flex:1;overflow-y:auto;">
+    <div style="background:#FFF8E1;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;border-left:4px solid var(--yellow);">
+      <p style="font-size:12px;font-weight:700;color:#F57F17;">⚠️ Información general. No reemplaza asesoría legal profesional.</p>
+    </div>
+    <div class="home-grid">
+      <div class="home-card" onclick="showLeyInfo('educacion')"><div class="card-icon">📚</div><div class="card-title">Derechos en Educación</div></div>
+      <div class="home-card" onclick="showLeyInfo('salud')"><div class="card-icon">🏥</div><div class="card-title">Salud y Apoyos</div></div>
+      <div class="home-card" onclick="showLeyInfo('trabajo')"><div class="card-icon">💼</div><div class="card-title">Trabajo y Vida Adulta</div></div>
+      <div class="home-card" onclick="showLeyInfo('discriminacion')"><div class="card-icon">🚫</div><div class="card-title">¿Qué hacer si hay discriminación?</div></div>
+    </div>
+    <div id="ley-info-block" style="display:none;margin-top:16px;" class="script-block">
+      <h3 id="ley-info-title"></h3>
+      <p class="script-para" id="ley-info-text"></p>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// SETTINGS
+// ============================================================
+const settings = { tts: true, bigtext: false, contrast: false, simple: false };
+
+function toggleAccess(key, btn) {
+  settings[key] = !settings[key];
+  btn.classList.toggle('on', settings[key]);
+  if (key === 'tts') ttsEnabled = settings[key];
+  applySettings();
+}
+
+function applySettings() {
+  document.body.classList.toggle('big-text', settings.bigtext);
+  document.body.classList.toggle('high-contrast', settings.contrast);
+  document.body.classList.toggle('simple-mode', settings.simple);
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function navigate(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screenId).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ============================================================
+// TTS — Median.co / Chrome WebView
+// Median usa Chrome como motor → speechSynthesis SÍ funciona.
+// El código espera que las voces carguen antes de hablar.
+// Funciona también en navegador de escritorio para pruebas.
+// ============================================================
+
+let ttsEnabled = true;
+let ttsVoices  = [];
+let ttsReady   = false;
+let ttsPending = null;
+
+function initTTS() {
+  if (!('speechSynthesis' in window)) return;
+
+  function tryLoad() {
+    const v = window.speechSynthesis.getVoices();
+    if (v && v.length > 0) {
+      ttsVoices = v;
+      ttsReady  = true;
+      if (ttsPending) {
+        const t = ttsPending; ttsPending = null;
+        doSpeak(t);
+      }
+    }
+  }
+
+  if ('onvoiceschanged' in window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = tryLoad;
+  }
+  tryLoad();
+  [100, 300, 700, 1500, 3000, 5000].forEach(d => setTimeout(tryLoad, d));
+
+  // Desbloquear audio con primer toque (requerido en Chrome mobile)
+  document.addEventListener('touchstart', function unlock() {
+    document.removeEventListener('touchstart', unlock);
+    try {
+      const s = new SpeechSynthesisUtterance(' ');
+      s.volume = 0; s.lang = 'es-ES';
+      window.speechSynthesis.speak(s);
+      setTimeout(() => window.speechSynthesis.cancel(), 100);
+    } catch(e) {}
+  }, { once: true, passive: true });
+}
+
+function getBestVoice() {
+  if (!ttsVoices.length) return null;
+  const fem = ['paulina','monica','mónica','luciana','sabina','carmen',
+               'conchita','elena','esperanza','maria','laura','rosa',
+               'female','google español','google spanish'];
+  for (const n of fem) {
+    const found = ttsVoices.find(v => v.name.toLowerCase().includes(n));
+    if (found) return found;
+  }
+  const es = ttsVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  return es || ttsVoices[0] || null;
+}
+
+function cleanText(t) {
+  return t.replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+          .replace(/[\u2600-\u27BF]/g, '')
+          .replace(/[_*~`#]/g, '')
+          .replace(/\s+/g, ' ').trim();
+}
+
+function doSpeak(text) {
+  if (!('speechSynthesis' in window)) { showSpeakVisual(text); return; }
+  try { window.speechSynthesis.cancel(); } catch(e) {}
+
+  // Dividir en oraciones ≤140 chars para evitar cortes en Chrome mobile
+  const chunks = [];
+  text.split(/[.!?]+/).forEach(s => {
+    s = s.trim();
+    if (!s) return;
+    if (s.length <= 140) { chunks.push(s); return; }
+    const words = s.split(' ');
+    let cur = '';
+    words.forEach(w => {
+      if ((cur + ' ' + w).trim().length <= 140) {
+        cur = (cur + ' ' + w).trim();
+      } else { if (cur) chunks.push(cur); cur = w; }
+    });
+    if (cur) chunks.push(cur);
+  });
+  if (!chunks.length) return;
+
+  let i = 0;
+  function next() {
+    if (i >= chunks.length || !ttsEnabled) return;
+    try {
+      const u = new SpeechSynthesisUtterance(chunks[i]);
+      u.lang   = 'es-ES';
+      u.rate   = 0.85;
+      u.pitch  = 1.2;
+      u.volume = 1.0;
+      const v = getBestVoice(); if (v) u.voice = v;
+      u.onend   = () => { i++; setTimeout(next, 100); };
+      u.onerror = () => { i++; setTimeout(next, 100); };
+      window.speechSynthesis.speak(u);
+    } catch(e) { i++; setTimeout(next, 100); }
+  }
+  setTimeout(next, 200);
+}
+
+function speak(text) {
+  if (!ttsEnabled || !text) return;
+  const clean = cleanText(text);
+  if (!clean) return;
+
+  if (ttsReady) {
+    doSpeak(clean);
+  } else if ('speechSynthesis' in window) {
+    // Guardar y hablar cuando las voces estén listas
+    ttsPending = clean;
+    setTimeout(() => {
+      if (!ttsReady) {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) { ttsVoices = v; ttsReady = true; }
+      }
+      if (ttsReady && ttsPending) {
+        const t = ttsPending; ttsPending = null; doSpeak(t);
+      } else if (!ttsReady && ttsPending) {
+        showSpeakVisual(ttsPending);
+        ttsPending = null;
+      }
+    }, 1000);
+  } else {
+    showSpeakVisual(clean);
+  }
+}
+
+function stopSpeech() {
+  ttsPending = null;
+  if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch(e) {} }
+}
+
+function showSpeakVisual(text) {
+  let ov = document.getElementById('tts-visual');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'tts-visual';
+    ov.style.cssText = `
+      position:fixed;bottom:80px;left:16px;right:16px;
+      background:rgba(30,18,70,0.93);color:#fff;
+      padding:16px 20px;border-radius:16px;
+      font-size:17px;font-weight:700;text-align:center;
+      z-index:9999;line-height:1.5;
+      box-shadow:0 4px 24px rgba(0,0,0,0.3);
+      transition:opacity 0.4s;pointer-events:none;`;
+    document.body.appendChild(ov);
+  }
+  ov.textContent = text;
+  ov.style.opacity = '1';
+  clearTimeout(ov._t);
+  ov._t = setTimeout(() => { ov.style.opacity = '0'; }, 4000);
+}
+
+function testVoz() {
+  const status = document.getElementById('tts-status');
+  const hasSS  = 'speechSynthesis' in window;
+  const nVoices = ttsVoices.length;
+  const best   = getBestVoice();
+
+  if (status) {
+    if (!hasSS) {
+      status.innerHTML = '❌ <b>speechSynthesis no disponible</b> — usa Median.co';
+    } else {
+      status.innerHTML =
+        `Voces cargadas: <b>${nVoices}</b> &nbsp;|&nbsp; Lista: <b>${ttsReady ? '✓' : '…'}</b><br>` +
+        `Mejor voz: <b>${best ? best.name + ' (' + best.lang + ')' : 'ninguna aún'}</b>`;
+    }
+  }
+
+  ttsEnabled = true;
+
+  if (!hasSS) {
+    showSpeakVisual('Sin motor de voz. Abre desde Median.co o Chrome.');
+    return;
+  }
+
+  if (nVoices === 0) {
+    showToast('Cargando voces… intenta en 3 segundos');
+    setTimeout(() => {
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) { ttsVoices = v; ttsReady = true; }
+      speak('Hola, probando la voz.');
+      if (status) {
+        const b = getBestVoice();
+        status.innerHTML = `Voces: <b>${ttsVoices.length}</b> | Voz: <b>${b ? b.name : 'ninguna'}</b>`;
+      }
+    }, 1500);
+    return;
+  }
+
+  speak('Hola, la voz está funcionando. Soy la voz de ContigoApp.');
+}
+
+let phraseWords = [];
+
+function addWord(word) {
+  phraseWords.push(word);
+  renderPhrase();
+  speak(word);
+}
+
+function renderPhrase() {
+  const d = document.getElementById('phrase-display');
+  if (phraseWords.length === 0) {
+    d.innerHTML = '<span class="phrase-empty">Toca los pictogramas…</span>';
+  } else {
+    d.innerHTML = phraseWords.map(w => `<span class="phrase-word">${w}</span>`).join('');
+  }
+}
+
+function speakPhrase() {
+  if (phraseWords.length === 0) return;
+  const btn = document.getElementById('speak-btn');
+  btn.classList.add('speaking');
+  speak(phraseWords.join(', '));
+  setTimeout(() => btn.classList.remove('speaking'), 3000);
+}
+
+function clearPhrase() {
+  phraseWords = [];
+  renderPhrase();
+}
+
+function switchBoard(boardId, tabEl) {
+  document.querySelectorAll('[id^="board-"]').forEach(b => b.style.display = 'none');
+  document.getElementById('board-' + boardId).style.display = 'grid';
+  document.querySelectorAll('.board-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+}
+
+// ============================================================
+// REGULATION
+// ============================================================
+const exerciseData = {
+  activado: [
+    { icon: '🟦', title: 'Respiración Cuadrada', duration: '1 min', steps: ['Inhala 4 segundos', 'Sostén 4 segundos', 'Exhala 4 segundos', 'Sostén 4 segundos. Repite 3 veces.'] },
+    { icon: '🧱', title: 'Presión contra la pared', duration: '1–2 min', steps: ['Pon tus manos en la pared', 'Empuja firme 10 segundos', 'Suelta 10 segundos. Repite 3 veces.'] },
+    { icon: '🌊', title: 'Cuerpo pesado', duration: '1–2 min', steps: ['Aprieta hombros hacia arriba 5s', 'Suelta y deja caer "pesado" 10s', 'Repite 3 veces'] }
+  ],
+  concentrar: [
+    { icon: '👁️', title: '5 cosas (foco + calma)', duration: '2 min', steps: ['Mira y nombra 5 cosas que ves', 'Nombra 4 cosas que sientes (ropa, silla)', 'Nombra 3 sonidos que escuchas'] },
+    { icon: '🖐️', title: 'Ritmo con dedos', duration: '1 min', steps: ['Toca pulgar con índice 10 veces', 'Luego pulgar con medio 10 veces', 'Luego con anular y meñique'] }
+  ],
+  descansar: [
+    { icon: '🔥', title: 'Manos calientes', duration: '1 min', steps: ['Frota tus manos rápido 15 segundos', 'Ponlas sobre tu pecho o brazos', 'Respira lento 3 veces'] },
+    { icon: '🌿', title: 'Estiramiento simple', duration: '1–2 min', steps: ['Estira brazos al cielo 10 segundos', 'Abraza tu cuerpo 10 segundos', 'Estira cuello suave a cada lado'] }
+  ],
+  sensorial: [
+    { icon: '📦', title: 'Caja de calma mental', duration: '2 min', steps: ['Imagina una caja', 'Mete dentro: "ruido", "miedo", "apuro"', 'Ciérrala y respira 5 veces'] },
+    { icon: '🌑', title: 'Pausa sensorial', duration: '2 min', steps: ['Baja luz si puedes, o mira un punto fijo', 'Tapa oídos suave (sin apretar)', 'Respira lento y cuenta hasta 10'] }
+  ]
+};
+
+function showExercises(mood) {
+  const container = document.getElementById('exercises-container');
+  const exs = exerciseData[mood] || [];
+  container.innerHTML = `<div class="section-label" style="margin-top:20px">Ejercicios recomendados</div>` +
+    exs.map((ex, i) => `
+      <div class="exercise-card">
+        <div class="exercise-header">
+          <div class="exercise-icon">${ex.icon}</div>
+          <div>
+            <div class="exercise-title">${ex.title}</div>
+            <div class="exercise-duration">⏱ ${ex.duration}</div>
+          </div>
+        </div>
+        <ul class="exercise-steps">
+          ${ex.steps.map((s, si) => `<li class="exercise-step"><span class="step-num">${si+1}</span><span class="step-text">${s}</span></li>`).join('')}
+        </ul>
+        <div class="exercise-feedback">
+          <button class="feedback-btn yes" onclick="feedbackEx(this, true)">✅ Me ayudó</button>
+          <button class="feedback-btn no" onclick="feedbackEx(this, false)">❌ No me ayudó</button>
+        </div>
+      </div>
+    `).join('');
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function feedbackEx(btn, helped) {
+  showToast(helped ? '💜 ¡Guardado! Se pondrá primero' : 'Gracias, buscaremos otro ejercicio');
+}
+
+// ============================================================
+// SCHOOL / VIDEOS
+// ============================================================
+const videoData = [
+  {
+    title: '¿Qué es el autismo?',
+    icon: '🧩',
+    voice: `El autismo es una forma distinta de percibir y procesar el mundo.
+
+No es una enfermedad. No es culpa de nadie.
+
+Cada persona autista es diferente.
+
+Algunas hablan mucho. Otras hablan poco o nada.
+
+A veces hay sensibilidad a ruidos, luces o texturas.
+
+También puede haber necesidad de rutinas y dificultad con cambios.
+
+Lo importante: con apoyos adecuados, la vida puede ser más tranquila y predecible.
+
+Si tienes dudas, buscar orientación profesional puede ayudar.`,
+    points: ['El autismo es una forma distinta de procesar el mundo', 'Cada persona es diferente', 'Puede haber sensibilidad sensorial', 'Las rutinas pueden ayudar', 'Pedir apoyo está bien']
+  },
+  {
+    title: 'Pesquisa vs Diagnóstico',
+    icon: '🔍',
+    voice: `Pesquisa no es diagnóstico.
+
+La pesquisa es una primera alerta: una evaluación breve para ver si conviene estudiar más.
+
+El diagnóstico lo hace un equipo clínico, con entrevistas y observación.
+
+Si alguien te dice "hay señales", no es una etiqueta final.
+
+Es una invitación a mirar con más calma y pedir apoyo.
+
+Mientras tanto, lo más útil es observar: comunicación, juego, sensibilidad, rutinas, cambios.`,
+    points: ['Pesquisa = primera alerta', 'Diagnóstico = evaluación clínica completa', 'Si hay señales: pedir orientación', 'Observar comunicación, juego y cambios']
+  },
+  {
+    title: 'Signos de alerta (sin pánico)',
+    icon: '👁️',
+    voice: `Algunas señales pueden ser:
+
+Dificultad para responder al nombre de forma frecuente.
+
+Poco contacto visual, o contacto distinto.
+
+Dificultad para compartir intereses: mostrar, señalar, mirar lo mismo.
+
+Uso repetitivo de objetos o movimientos.
+
+Molestia intensa con ruidos, luces o texturas.
+
+Mucha angustia con cambios pequeños.
+
+Ojo: una señal sola no confirma nada.
+
+Si se juntan varias y persisten, conviene consultar.
+
+Lo mejor es observar con calma y anotar ejemplos.`,
+    points: ['Una señal sola no confirma', 'Varias señales + tiempo = consultar', 'Anota ejemplos', 'Observa: comunicación, juego, cambios, sensorial']
+  },
+  {
+    title: 'Qué hacer en una desregulación',
+    icon: '⚡',
+    voice: `Una desregulación no es maldad ni manipulación.
+
+Es el cuerpo diciendo: "no puedo más".
+
+En el momento: baja estímulos.
+
+Habla poco. Usa frases simples.
+
+Da espacio y seguridad: sin apurar.
+
+Ofrece opciones concretas: agua o descanso, luz baja o silencio.
+
+Evita sermones y preguntas largas.
+
+Cuando pase, recién ahí conversen: ¿qué lo gatilló? ¿qué ayudó?
+
+Y guarda esa información para un plan.`,
+    points: ['Baja estímulos', 'Habla poco', 'Da espacio y seguridad', 'Ofrece 2 opciones', 'Después: aprender, no retar']
+  },
+  {
+    title: 'Selectividad alimentaria',
+    icon: '🍽️',
+    voice: `La selectividad alimentaria puede ser sensorial.
+
+No siempre es "maña".
+
+Empieza por lo posible: rutina de horarios y un lugar tranquilo.
+
+Usa pasos pequeños:
+
+Primero tolerar el alimento en el plato.
+
+Después olerlo.
+
+Luego tocarlo.
+
+Luego una microprueba, sin presión.
+
+Mejor repetir muchas veces sin castigos.
+
+Si hay baja de peso, dolor, vómitos frecuentes o mucha angustia: consulta a profesionales.`,
+    points: ['Puede ser sensorial', 'Pasos pequeños: plato → olor → tocar → microprueba', 'Sin presión', 'Si hay señales de salud: consultar']
+  }
+];
+
+function showVideo(idx) {
+  const v = videoData[idx];
+  document.getElementById('video-screen-title').textContent = v.title;
+  document.getElementById('video-content').innerHTML = `
+    <div style="padding:16px;">
+      <div style="background:linear-gradient(135deg,var(--primary),var(--primary-light));border-radius:var(--radius);padding:24px;text-align:center;margin-bottom:16px;color:white;">
+        <div style="font-size:56px;margin-bottom:12px">${v.icon}</div>
+        <div style="font-size:20px;font-weight:800;">${v.title}</div>
+        <button onclick="readVideoAloud(${idx})" style="margin-top:14px;background:rgba(255,255,255,0.2);color:white;border:2px solid rgba(255,255,255,0.4);padding:10px 24px;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font)">🔊 Escuchar guía</button>
+      </div>
+      <div class="script-block">
+        <h3>📝 Texto en pantalla</h3>
+        <div class="script-bullets">
+          ${v.points.map(p => `<div class="script-bullet"><span class="script-bullet-dot">•</span>${p}</div>`).join('')}
+        </div>
+      </div>
+      <div class="script-block">
+        <h3>🎙️ Guion de voz</h3>
+        <p class="script-para" style="white-space:pre-line">${v.voice}</p>
+      </div>
+    </div>
+  `;
+  navigate('video');
+}
+
+function readVideoAloud(idx) {
+  speak(videoData[idx].voice);
+  showToast('🔊 Reproduciendo guía de voz…');
+}
+
+// ============================================================
+// CHECK-IN
+// ============================================================
+const tips = [
+  'Tómate 5 minutos de silencio hoy. Solo respirar.',
+  'Sal 10 minutos al exterior, aunque sea al balcón.',
+  'Llama o escribe a alguien de tu red de apoyo.',
+  'Bebe un vaso de agua y estira los brazos al cielo.',
+  'Anota 3 cosas que salieron bien hoy, por pequeñas que sean.',
+  'Pon tu música favorita por 2 canciones completas.',
+  'Date un descanso de pantallas por 15 minutos.'
+];
+
+function selectOpt(btn, group) {
+  btn.closest('.emoji-scale').querySelectorAll('.emoji-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function updateSlider(input) { /* visual feedback opcional */ }
+
+function showTips() {
+  const tip = tips[Math.floor(Math.random() * tips.length)];
+  document.getElementById('daily-tip').textContent = tip;
+  document.getElementById('tips-section').style.display = 'block';
+  document.getElementById('tips-section').scrollIntoView({ behavior: 'smooth' });
+  speak(tip);
+}
+
+function saveTip() { showToast('💜 Hábito guardado'); }
+
+// ============================================================
+// LEY TEA
+// ============================================================
+const leyData = {
+  educacion: {
+    title: '📚 Derechos en Educación',
+    text: `La Ley TEA N°21.545 (Chile, 2023) establece que toda persona en el espectro autista tiene derecho a educación inclusiva, con apoyos y adecuaciones curriculares según sus necesidades. Los establecimientos deben contar con Proyectos de Integración (PIE) y los estudiantes con TEA deben ser incluidos en aulas regulares con los apoyos necesarios. Los padres y tutores tienen derecho a participar en el diseño del plan de apoyo.`
+  },
+  salud: {
+    title: '🏥 Salud y Apoyos',
+    text: `La ley garantiza acceso a evaluación diagnóstica en la red de salud pública y privada, y a planes de apoyo multidisciplinarios (fonoaudiología, terapia ocupacional, psicología). El sistema público debe derivar oportunamente y coordinar entre salud y educación. La atención debe ser respetuosa, sin discriminación, considerando la diversidad dentro del espectro.`
+  },
+  trabajo: {
+    title: '💼 Trabajo y Vida Adulta',
+    text: `La ley reconoce el derecho al trabajo digno e inclusivo para personas con TEA en edad adulta. Empleadores con más de 100 trabajadores deben considerar inclusión laboral. Se establecen apoyos para autonomía, vida independiente y participación en la comunidad. El SENCE y organismos públicos deben facilitar capacitación laboral inclusiva.`
+  },
+  discriminacion: {
+    title: '🚫 Qué hacer ante discriminación',
+    text: `1. Documenta el hecho: fecha, lugar, testigos, descripción.
+2. Presenta un reclamo formal ante el SERNAC, el establecimiento educacional o la institución involucrada.
+3. Acude a la Defensoría de la Niñez si afecta a menores.
+4. Denuncia ante el MINEDUC si es en contexto escolar.
+5. Busca asesoría en organizaciones como ASPAUT, APASAM u otras de tu región.
+Recuerda: la discriminación arbitraria es ilegal en Chile según la Ley 20.609.`
+  }
+};
+
+function showLeyInfo(key) {
+  const info = leyData[key];
+  document.getElementById('ley-info-title').textContent = info.title;
+  document.getElementById('ley-info-text').textContent = info.text;
+  document.getElementById('ley-info-block').style.display = 'block';
+  document.getElementById('ley-info-block').scrollIntoView({ behavior: 'smooth' });
+  speak(info.text);
+}
+
+
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// INIT — Android WebView / Chrome Custom Tabs
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  ttsEnabled = settings.tts;
+  initTTS();
+  applySettings();
+
+  // FIX CRÍTICO ANDROID: touchstart vacío activa el contexto de gestos
+  // necesario para que speechSynthesis funcione (requiere gesto de usuario)
+  document.body.addEventListener('touchstart', function() {}, {passive: true});
+
+  // Fix Android WebView: speechSynthesis se pausa en background
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && window.speechSynthesis) {
+      try { window.speechSynthesis.resume(); } catch(e) {}
+    }
+  });
+
+  // Fix Android: speechSynthesis se pausa solo cada ~30s en algunos WebViews
+  setInterval(() => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      try { window.speechSynthesis.resume(); } catch(e) {}
+    }
+  }, 5000);
+});
+// Registrar Service Worker para PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
