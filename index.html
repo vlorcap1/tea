@@ -675,6 +675,9 @@
   <button class="btn-primary" onclick="navigate('home')">✅ Empezar</button>
   <button onclick="testVoz()" style="margin-top:12px;background:none;border:2px solid var(--primary-light);color:var(--primary);padding:12px 24px;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:var(--font);touch-action:manipulation;">🔊 Probar voz</button>
   <p id="tts-status" style="margin-top:10px;font-size:12px;color:var(--text-light);text-align:center;font-weight:600;min-height:18px;"></p>
+  <p style="margin-top:8px;font-size:11px;color:#aaa;text-align:center;line-height:1.5;padding:0 10px;">
+    La voz usa Google TTS — requiere internet (4G o WiFi).<br>Sin internet, se mostrará el texto en pantalla.
+  </p>
 </div>
 
 <!-- ================================================================
@@ -1103,6 +1106,7 @@ const settings = { tts: true, bigtext: false, contrast: false, simple: false };
 function toggleAccess(key, btn) {
   settings[key] = !settings[key];
   btn.classList.toggle('on', settings[key]);
+  if (key === 'tts') ttsEnabled = settings[key];
   applySettings();
 }
 
@@ -1122,125 +1126,184 @@ function navigate(screenId) {
 }
 
 // ============================================================
-// TTS — Sistema multicapa para Android WebView / APK
+// TTS — Google Translate Audio (funciona en CUALQUIER WebView/APK)
+// Usa la API pública de Google Translate para generar MP3 del texto.
+// No requiere API key. Requiere internet (4G/WiFi).
+// Fallback: Web Speech API si hay, o texto visual si no hay nada.
 // ============================================================
-// Capa 1: Android TTS nativa via interfaz Java (WebViewGold, Capacitor, etc.)
-// Capa 2: speechSynthesis del navegador (funciona en algunos WebViews)
-// Capa 3: Visual feedback si ninguna voz está disponible
 
 let ttsVoices = [];
-let ttsMethod = 'unknown'; // 'android', 'web', 'none'
+let ttsEnabled = true;
+let ttsAudio = null; // elemento Audio actual
 
 function initTTS() {
-  // Detectar qué método de TTS está disponible
-  // Capa 1: Algunos wrappers APK exponen window.Android o window.AndroidTTS
-  if (window.Android && typeof window.Android.speak === 'function') {
-    ttsMethod = 'android-interface';
-    return;
-  }
-  // Algunos wrappers usan window.webkit.messageHandlers (iOS/Android híbrido)
-  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tts) {
-    ttsMethod = 'webkit';
-    return;
-  }
-
-  // Capa 2: Web Speech API
+  // Intentar cargar voces de Web Speech API como respaldo
   if ('speechSynthesis' in window) {
-    ttsMethod = 'web';
-    // Cargar voces — Android WebView a veces es lento, intentar varias veces
-    function tryLoadVoices() {
-      const v = window.speechSynthesis.getVoices();
-      if (v && v.length > 0) { ttsVoices = v; }
-    }
-    tryLoadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = tryLoadVoices;
-    }
-    setTimeout(tryLoadVoices, 300);
-    setTimeout(tryLoadVoices, 800);
-    setTimeout(tryLoadVoices, 2000);
-    setTimeout(tryLoadVoices, 4000);
-    return;
-  }
-
-  ttsMethod = 'none';
-}
-
-function getBestVoice() {
-  if (!ttsVoices || ttsVoices.length === 0) return null;
-  // Voces femeninas preferidas en español
-  const femNames = ['paulina','monica','mónica','luciana','sabina',
-                    'carmen','conchita','elena','esperanza','maria',
-                    'female','mujer','woman'];
-  for (const name of femNames) {
-    const found = ttsVoices.find(v => v.name.toLowerCase().includes(name));
-    if (found) return found;
-  }
-  // Cualquier español
-  const esVoice = ttsVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
-  return esVoice || ttsVoices[0] || null;
-}
-
-function speak(text) {
-  if (!settings.tts || !text) return;
-
-  // Limpiar texto para TTS (quitar emojis que confunden al motor)
-  const clean = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
-                    .replace(/[🌈💜⭐✅❌🆘🔊🗑️]/g, '')
-                    .trim();
-  if (!clean) return;
-
-  // CAPA 1: Interfaz Android nativa (WebViewGold, etc.)
-  if (ttsMethod === 'android-interface') {
-    try { window.Android.speak(clean, 'es', 0.85, 1.15); return; } catch(e) {}
-    try { window.Android.speak(clean); return; } catch(e) {}
-  }
-
-  // CAPA 2: Web Speech API con fixes para Android WebView
-  if ('speechSynthesis' in window) {
-    try { window.speechSynthesis.cancel(); } catch(e) {}
-
-    // Android WebView necesita que speechSynthesis sea activado por
-    // un gesto del usuario. Si ttsVoices está vacío, intentamos cargar.
-    if (ttsVoices.length === 0) {
+    const load = () => {
       const v = window.speechSynthesis.getVoices();
       if (v && v.length > 0) ttsVoices = v;
+    };
+    load();
+    if ('onvoiceschanged' in window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = load;
     }
-
-    // Dividir texto largo en oraciones (fix bug Android corta texto >200 chars)
-    const parts = clean.length > 180
-      ? clean.split(/(?<=[.!?])\s+|(?<=\n)/).map(s => s.trim()).filter(Boolean)
-      : [clean];
-
-    let idx = 0;
-    function next() {
-      if (idx >= parts.length || !settings.tts) return;
-      try {
-        const u = new SpeechSynthesisUtterance(parts[idx]);
-        u.lang   = 'es-ES';  // mejor soporte en Android que es-CL
-        u.rate   = 0.88;
-        u.pitch  = 1.15;
-        u.volume = 1.0;
-        const voice = getBestVoice();
-        if (voice) u.voice = voice;
-        u.onend   = () => { idx++; setTimeout(next, 50); };
-        u.onerror = () => { idx++; setTimeout(next, 50); };
-        window.speechSynthesis.speak(u);
-      } catch(e) { idx++; setTimeout(next, 50); }
-    }
-
-    // Delay 150ms tras cancel() — requerido en Android WebView
-    setTimeout(next, 150);
-    return;
+    [300, 1000, 3000].forEach(t => setTimeout(load, t));
   }
-
-  // CAPA 3: Sin TTS disponible — feedback visual
-  showToast('🔇 Voz no disponible en este dispositivo');
 }
 
-// ============================================================
-// CAA
-// ============================================================
+function cleanText(text) {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u2600-\u27BF]/g, '')
+    .replace(/[_*~`#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ---- MÉTODO 1: Google Translate TTS (MP3 vía Audio element) ----
+// Funciona en cualquier WebView Android con acceso a internet.
+// La voz de Google en español es femenina y natural.
+function speakGoogleTTS(text) {
+  try {
+    // Partir en fragmentos de máx 200 chars (límite de Google TTS)
+    const MAX = 190;
+    const chunks = [];
+    // Dividir por oraciones primero
+    const sentences = text.split(/(?<=[.!?,;])\s+/).map(s => s.trim()).filter(Boolean);
+    let current = '';
+    for (const s of sentences) {
+      if ((current + ' ' + s).trim().length <= MAX) {
+        current = (current + ' ' + s).trim();
+      } else {
+        if (current) chunks.push(current);
+        // Si la oración sola supera MAX, partir por palabras
+        if (s.length > MAX) {
+          const words = s.split(' ');
+          let chunk = '';
+          for (const w of words) {
+            if ((chunk + ' ' + w).trim().length <= MAX) {
+              chunk = (chunk + ' ' + w).trim();
+            } else {
+              if (chunk) chunks.push(chunk);
+              chunk = w;
+            }
+          }
+          if (chunk) chunks.push(chunk);
+        } else {
+          current = s;
+        }
+      }
+    }
+    if (current) chunks.push(current);
+
+    let idx = 0;
+    function playChunk() {
+      if (idx >= chunks.length || !ttsEnabled) return;
+      const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=es&client=tw-ob&q='
+                + encodeURIComponent(chunks[idx]);
+      if (ttsAudio) { try { ttsAudio.pause(); } catch(e) {} }
+      ttsAudio = new Audio(url);
+      ttsAudio.onended = () => { idx++; setTimeout(playChunk, 120); };
+      ttsAudio.onerror = () => {
+        // Google TTS falló (sin internet) → intentar Web Speech
+        idx = 9999; // detener cola Google
+        speakWebFallback(text);
+      };
+      ttsAudio.play().catch(() => speakWebFallback(text));
+    }
+    playChunk();
+    return true;
+  } catch(e) { return false; }
+}
+
+// ---- MÉTODO 2: Web Speech API (respaldo sin internet) ----
+function getBestVoice() {
+  if (!ttsVoices.length) return null;
+  const fem = ['paulina','monica','mónica','luciana','sabina','carmen',
+               'conchita','elena','esperanza','maria','female'];
+  for (const n of fem) {
+    const v = ttsVoices.find(v => v.name.toLowerCase().includes(n));
+    if (v) return v;
+  }
+  return ttsVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'))
+      || ttsVoices[0] || null;
+}
+
+function speakWebFallback(text) {
+  if (!('speechSynthesis' in window)) { showSpeakVisual(text); return; }
+  try { window.speechSynthesis.cancel(); } catch(e) {}
+
+  const parts = text.length > 150
+    ? text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
+    : [text];
+
+  let i = 0;
+  function next() {
+    if (i >= parts.length || !ttsEnabled) return;
+    try {
+      const u = new SpeechSynthesisUtterance(parts[i]);
+      u.lang = 'es-ES'; u.rate = 0.88; u.pitch = 1.15; u.volume = 1.0;
+      const v = getBestVoice(); if (v) u.voice = v;
+      u.onend = () => { i++; setTimeout(next, 80); };
+      u.onerror = () => { i++; setTimeout(next, 80); };
+      window.speechSynthesis.speak(u);
+    } catch(e) { showSpeakVisual(text); }
+  }
+  setTimeout(next, 150);
+}
+
+// ---- MÉTODO 3: Texto visual (sin internet ni Web Speech) ----
+function showSpeakVisual(text) {
+  let overlay = document.getElementById('tts-visual');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'tts-visual';
+    overlay.style.cssText = `
+      position:fixed; bottom:80px; left:16px; right:16px;
+      background:rgba(30,18,70,0.93); color:white;
+      padding:16px 20px; border-radius:16px;
+      font-size:17px; font-weight:700; text-align:center;
+      z-index:9999; line-height:1.5;
+      box-shadow:0 4px 24px rgba(0,0,0,0.3);
+      transition:opacity 0.4s;
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.textContent = text;
+  overlay.style.opacity = '1';
+  clearTimeout(overlay._t);
+  overlay._t = setTimeout(() => { overlay.style.opacity = '0'; }, 3500);
+}
+
+// ---- FUNCIÓN PRINCIPAL ----
+function speak(text) {
+  if (!ttsEnabled || !text) return;
+  const clean = cleanText(text);
+  if (!clean) return;
+
+  // Intentar Google TTS primero (mejor voz, funciona en APK con internet)
+  speakGoogleTTS(clean);
+  // Si falla (sin internet), speakGoogleTTS llama automáticamente a speakWebFallback
+}
+
+// ---- DETENER VOZ ----
+function stopSpeech() {
+  if (ttsAudio) { try { ttsAudio.pause(); ttsAudio = null; } catch(e) {} }
+  if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch(e) {} }
+}
+
+// ---- DIAGNÓSTICO ----
+function testVoz() {
+  const status = document.getElementById('tts-status');
+  const online = navigator.onLine;
+  const hasSpeech = 'speechSynthesis' in window;
+  const voiceCount = ttsVoices.length;
+  if (status) {
+    status.textContent = `Internet: ${online ? 'Sí' : 'No'} · Web Speech: ${hasSpeech ? 'Sí' : 'No'} · Voces: ${voiceCount}`;
+  }
+  ttsEnabled = true;
+  speak('Hola, la voz está funcionando. Esta es la voz de la aplicación.');
+}
 let phraseWords = [];
 
 function addWord(word) {
@@ -1575,6 +1638,7 @@ function testVoz() {
 // INIT — Android WebView compatible
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
+  ttsEnabled = settings.tts;
   initTTS();
   applySettings();
 
