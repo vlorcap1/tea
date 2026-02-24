@@ -1,0 +1,26 @@
+{
+  "name": "ContigoApp - CAA TEA",
+  "short_name": "ContigoApp",
+  "description": "Comunicación Aumentativa y Alternativa para TEA",
+  "start_url": "/tea/",
+  "scope": "/tea/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F0FF",
+  "theme_color": "#6B4FBB",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "https://vlorcap1.github.io/tea/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://vlorcap1.github.io/tea/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
