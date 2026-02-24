@@ -676,7 +676,7 @@
   <button onclick="testVoz()" style="margin-top:12px;background:none;border:2px solid var(--primary-light);color:var(--primary);padding:12px 24px;border-radius:50px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:var(--font);touch-action:manipulation;">🔊 Probar voz</button>
   <p id="tts-status" style="margin-top:10px;font-size:12px;color:var(--text-light);text-align:center;font-weight:600;min-height:18px;"></p>
   <p style="margin-top:8px;font-size:11px;color:#aaa;text-align:center;line-height:1.5;padding:0 10px;">
-    La voz usa Google TTS — requiere internet (4G o WiFi).<br>Sin internet, se mostrará el texto en pantalla.
+    La voz requiere internet (4G o WiFi) la primera vez.<br>Toca "Probar voz" para verificar que funciona.
   </p>
 </div>
 
@@ -1126,184 +1126,202 @@ function navigate(screenId) {
 }
 
 // ============================================================
-// TTS — Google Translate Audio (funciona en CUALQUIER WebView/APK)
-// Usa la API pública de Google Translate para generar MP3 del texto.
-// No requiere API key. Requiere internet (4G/WiFi).
-// Fallback: Web Speech API si hay, o texto visual si no hay nada.
+// TTS — Median.co / Chrome WebView
+// Median usa Chrome como motor → speechSynthesis SÍ funciona.
+// El código espera que las voces carguen antes de hablar.
+// Funciona también en navegador de escritorio para pruebas.
 // ============================================================
 
-let ttsVoices = [];
 let ttsEnabled = true;
-let ttsAudio = null; // elemento Audio actual
+let ttsVoices  = [];
+let ttsReady   = false;
+let ttsPending = null;
 
 function initTTS() {
-  // Intentar cargar voces de Web Speech API como respaldo
-  if ('speechSynthesis' in window) {
-    const load = () => {
-      const v = window.speechSynthesis.getVoices();
-      if (v && v.length > 0) ttsVoices = v;
-    };
-    load();
-    if ('onvoiceschanged' in window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = load;
-    }
-    [300, 1000, 3000].forEach(t => setTimeout(load, t));
-  }
-}
+  if (!('speechSynthesis' in window)) return;
 
-function cleanText(text) {
-  return text
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
-    .replace(/[\u2600-\u27BF]/g, '')
-    .replace(/[_*~`#]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// ---- MÉTODO 1: Google Translate TTS (MP3 vía Audio element) ----
-// Funciona en cualquier WebView Android con acceso a internet.
-// La voz de Google en español es femenina y natural.
-function speakGoogleTTS(text) {
-  try {
-    // Partir en fragmentos de máx 200 chars (límite de Google TTS)
-    const MAX = 190;
-    const chunks = [];
-    // Dividir por oraciones primero
-    const sentences = text.split(/(?<=[.!?,;])\s+/).map(s => s.trim()).filter(Boolean);
-    let current = '';
-    for (const s of sentences) {
-      if ((current + ' ' + s).trim().length <= MAX) {
-        current = (current + ' ' + s).trim();
-      } else {
-        if (current) chunks.push(current);
-        // Si la oración sola supera MAX, partir por palabras
-        if (s.length > MAX) {
-          const words = s.split(' ');
-          let chunk = '';
-          for (const w of words) {
-            if ((chunk + ' ' + w).trim().length <= MAX) {
-              chunk = (chunk + ' ' + w).trim();
-            } else {
-              if (chunk) chunks.push(chunk);
-              chunk = w;
-            }
-          }
-          if (chunk) chunks.push(chunk);
-        } else {
-          current = s;
-        }
+  function tryLoad() {
+    const v = window.speechSynthesis.getVoices();
+    if (v && v.length > 0) {
+      ttsVoices = v;
+      ttsReady  = true;
+      if (ttsPending) {
+        const t = ttsPending; ttsPending = null;
+        doSpeak(t);
       }
     }
-    if (current) chunks.push(current);
+  }
 
-    let idx = 0;
-    function playChunk() {
-      if (idx >= chunks.length || !ttsEnabled) return;
-      const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=es&client=tw-ob&q='
-                + encodeURIComponent(chunks[idx]);
-      if (ttsAudio) { try { ttsAudio.pause(); } catch(e) {} }
-      ttsAudio = new Audio(url);
-      ttsAudio.onended = () => { idx++; setTimeout(playChunk, 120); };
-      ttsAudio.onerror = () => {
-        // Google TTS falló (sin internet) → intentar Web Speech
-        idx = 9999; // detener cola Google
-        speakWebFallback(text);
-      };
-      ttsAudio.play().catch(() => speakWebFallback(text));
-    }
-    playChunk();
-    return true;
-  } catch(e) { return false; }
+  if ('onvoiceschanged' in window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = tryLoad;
+  }
+  tryLoad();
+  [100, 300, 700, 1500, 3000, 5000].forEach(d => setTimeout(tryLoad, d));
+
+  // Desbloquear audio con primer toque (requerido en Chrome mobile)
+  document.addEventListener('touchstart', function unlock() {
+    document.removeEventListener('touchstart', unlock);
+    try {
+      const s = new SpeechSynthesisUtterance(' ');
+      s.volume = 0; s.lang = 'es-ES';
+      window.speechSynthesis.speak(s);
+      setTimeout(() => window.speechSynthesis.cancel(), 100);
+    } catch(e) {}
+  }, { once: true, passive: true });
 }
 
-// ---- MÉTODO 2: Web Speech API (respaldo sin internet) ----
 function getBestVoice() {
   if (!ttsVoices.length) return null;
   const fem = ['paulina','monica','mónica','luciana','sabina','carmen',
-               'conchita','elena','esperanza','maria','female'];
+               'conchita','elena','esperanza','maria','laura','rosa',
+               'female','google español','google spanish'];
   for (const n of fem) {
-    const v = ttsVoices.find(v => v.name.toLowerCase().includes(n));
-    if (v) return v;
+    const found = ttsVoices.find(v => v.name.toLowerCase().includes(n));
+    if (found) return found;
   }
-  return ttsVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'))
-      || ttsVoices[0] || null;
+  const es = ttsVoices.find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  return es || ttsVoices[0] || null;
 }
 
-function speakWebFallback(text) {
+function cleanText(t) {
+  return t.replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+          .replace(/[\u2600-\u27BF]/g, '')
+          .replace(/[_*~`#]/g, '')
+          .replace(/\s+/g, ' ').trim();
+}
+
+function doSpeak(text) {
   if (!('speechSynthesis' in window)) { showSpeakVisual(text); return; }
   try { window.speechSynthesis.cancel(); } catch(e) {}
 
-  const parts = text.length > 150
-    ? text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
-    : [text];
+  // Dividir en oraciones ≤140 chars para evitar cortes en Chrome mobile
+  const chunks = [];
+  text.split(/[.!?]+/).forEach(s => {
+    s = s.trim();
+    if (!s) return;
+    if (s.length <= 140) { chunks.push(s); return; }
+    const words = s.split(' ');
+    let cur = '';
+    words.forEach(w => {
+      if ((cur + ' ' + w).trim().length <= 140) {
+        cur = (cur + ' ' + w).trim();
+      } else { if (cur) chunks.push(cur); cur = w; }
+    });
+    if (cur) chunks.push(cur);
+  });
+  if (!chunks.length) return;
 
   let i = 0;
   function next() {
-    if (i >= parts.length || !ttsEnabled) return;
+    if (i >= chunks.length || !ttsEnabled) return;
     try {
-      const u = new SpeechSynthesisUtterance(parts[i]);
-      u.lang = 'es-ES'; u.rate = 0.88; u.pitch = 1.15; u.volume = 1.0;
+      const u = new SpeechSynthesisUtterance(chunks[i]);
+      u.lang   = 'es-ES';
+      u.rate   = 0.85;
+      u.pitch  = 1.2;
+      u.volume = 1.0;
       const v = getBestVoice(); if (v) u.voice = v;
-      u.onend = () => { i++; setTimeout(next, 80); };
-      u.onerror = () => { i++; setTimeout(next, 80); };
+      u.onend   = () => { i++; setTimeout(next, 100); };
+      u.onerror = () => { i++; setTimeout(next, 100); };
       window.speechSynthesis.speak(u);
-    } catch(e) { showSpeakVisual(text); }
+    } catch(e) { i++; setTimeout(next, 100); }
   }
-  setTimeout(next, 150);
+  setTimeout(next, 200);
 }
 
-// ---- MÉTODO 3: Texto visual (sin internet ni Web Speech) ----
-function showSpeakVisual(text) {
-  let overlay = document.getElementById('tts-visual');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'tts-visual';
-    overlay.style.cssText = `
-      position:fixed; bottom:80px; left:16px; right:16px;
-      background:rgba(30,18,70,0.93); color:white;
-      padding:16px 20px; border-radius:16px;
-      font-size:17px; font-weight:700; text-align:center;
-      z-index:9999; line-height:1.5;
-      box-shadow:0 4px 24px rgba(0,0,0,0.3);
-      transition:opacity 0.4s;
-    `;
-    document.body.appendChild(overlay);
-  }
-  overlay.textContent = text;
-  overlay.style.opacity = '1';
-  clearTimeout(overlay._t);
-  overlay._t = setTimeout(() => { overlay.style.opacity = '0'; }, 3500);
-}
-
-// ---- FUNCIÓN PRINCIPAL ----
 function speak(text) {
   if (!ttsEnabled || !text) return;
   const clean = cleanText(text);
   if (!clean) return;
 
-  // Intentar Google TTS primero (mejor voz, funciona en APK con internet)
-  speakGoogleTTS(clean);
-  // Si falla (sin internet), speakGoogleTTS llama automáticamente a speakWebFallback
+  if (ttsReady) {
+    doSpeak(clean);
+  } else if ('speechSynthesis' in window) {
+    // Guardar y hablar cuando las voces estén listas
+    ttsPending = clean;
+    setTimeout(() => {
+      if (!ttsReady) {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) { ttsVoices = v; ttsReady = true; }
+      }
+      if (ttsReady && ttsPending) {
+        const t = ttsPending; ttsPending = null; doSpeak(t);
+      } else if (!ttsReady && ttsPending) {
+        showSpeakVisual(ttsPending);
+        ttsPending = null;
+      }
+    }, 1000);
+  } else {
+    showSpeakVisual(clean);
+  }
 }
 
-// ---- DETENER VOZ ----
 function stopSpeech() {
-  if (ttsAudio) { try { ttsAudio.pause(); ttsAudio = null; } catch(e) {} }
+  ttsPending = null;
   if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch(e) {} }
 }
 
-// ---- DIAGNÓSTICO ----
+function showSpeakVisual(text) {
+  let ov = document.getElementById('tts-visual');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'tts-visual';
+    ov.style.cssText = `
+      position:fixed;bottom:80px;left:16px;right:16px;
+      background:rgba(30,18,70,0.93);color:#fff;
+      padding:16px 20px;border-radius:16px;
+      font-size:17px;font-weight:700;text-align:center;
+      z-index:9999;line-height:1.5;
+      box-shadow:0 4px 24px rgba(0,0,0,0.3);
+      transition:opacity 0.4s;pointer-events:none;`;
+    document.body.appendChild(ov);
+  }
+  ov.textContent = text;
+  ov.style.opacity = '1';
+  clearTimeout(ov._t);
+  ov._t = setTimeout(() => { ov.style.opacity = '0'; }, 4000);
+}
+
 function testVoz() {
   const status = document.getElementById('tts-status');
-  const online = navigator.onLine;
-  const hasSpeech = 'speechSynthesis' in window;
-  const voiceCount = ttsVoices.length;
+  const hasSS  = 'speechSynthesis' in window;
+  const nVoices = ttsVoices.length;
+  const best   = getBestVoice();
+
   if (status) {
-    status.textContent = `Internet: ${online ? 'Sí' : 'No'} · Web Speech: ${hasSpeech ? 'Sí' : 'No'} · Voces: ${voiceCount}`;
+    if (!hasSS) {
+      status.innerHTML = '❌ <b>speechSynthesis no disponible</b> — usa Median.co';
+    } else {
+      status.innerHTML =
+        `Voces cargadas: <b>${nVoices}</b> &nbsp;|&nbsp; Lista: <b>${ttsReady ? '✓' : '…'}</b><br>` +
+        `Mejor voz: <b>${best ? best.name + ' (' + best.lang + ')' : 'ninguna aún'}</b>`;
+    }
   }
+
   ttsEnabled = true;
-  speak('Hola, la voz está funcionando. Esta es la voz de la aplicación.');
+
+  if (!hasSS) {
+    showSpeakVisual('Sin motor de voz. Abre desde Median.co o Chrome.');
+    return;
+  }
+
+  if (nVoices === 0) {
+    showToast('Cargando voces… intenta en 3 segundos');
+    setTimeout(() => {
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) { ttsVoices = v; ttsReady = true; }
+      speak('Hola, probando la voz.');
+      if (status) {
+        const b = getBestVoice();
+        status.innerHTML = `Voces: <b>${ttsVoices.length}</b> | Voz: <b>${b ? b.name : 'ninguna'}</b>`;
+      }
+    }, 1500);
+    return;
+  }
+
+  speak('Hola, la voz está funcionando. Soy la voz de ContigoApp.');
 }
+
 let phraseWords = [];
 
 function addWord(word) {
@@ -1614,28 +1632,8 @@ function showToast(msg) {
   t._timer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function testVoz() {
-  const status = document.getElementById('tts-status');
-
-  // Actualizar status en pantalla
-  if (!('speechSynthesis' in window) && ttsMethod !== 'android-interface') {
-    if (status) status.textContent = '❌ TTS no disponible en este dispositivo';
-    showToast('❌ Voz no disponible');
-    return;
-  }
-
-  if (status) {
-    const voiceInfo = getBestVoice();
-    const voiceName = voiceInfo ? voiceInfo.name : 'voz por defecto';
-    const total = ttsVoices.length;
-    status.textContent = `Método: ${ttsMethod} · Voces: ${total} · Usando: ${voiceName}`;
-  }
-
-  speak('Hola, la voz está funcionando correctamente.');
-}
-
 // ============================================================
-// INIT — Android WebView compatible
+// INIT — Android WebView / Chrome Custom Tabs
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   ttsEnabled = settings.tts;
